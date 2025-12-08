@@ -90,7 +90,7 @@ async function handleRelease() {
          await backupFile.delete();
       }
    } else {
-      console.log(`Creating release ${tagName}...`);
+      console.log(`Creating release "${tagName}" ...`);
       const result = await $`gh release create ${tagName} vbl-pro-bun.exe --generate-notes`;
       
       if (result.exitCode !== 0) {
