@@ -59,6 +59,22 @@ async function main() {
   const message = `@${username} ${date} x${count}`;
 
   let committed = false;
+
+  const rollback = async () => {
+    console.error("\nFull rollback initiated...");
+    if (committed) {
+      await run(["git", "reset", "HEAD~1"]);
+    } else {
+      await run(["git", "reset"]);
+    }
+  };
+
+  process.on("SIGINT", async () => {
+    console.log("\nProcess terminated by user.");
+    await rollback();
+    process.exit(1);
+  });
+
   try {
     console.time("Committing...");
     await run(["git", "commit", "-m", message]);
@@ -70,11 +86,7 @@ async function main() {
     console.timeEnd("Pushing to origin main...");
   } catch (error) {
     console.error("An error occurred. Rolling back changes...");
-    if (committed) {
-      await run(["git", "reset", "HEAD~1"]);
-    } else {
-      await run(["git", "reset"]);
-    }
+    await rollback();
     throw error;
   }
 }

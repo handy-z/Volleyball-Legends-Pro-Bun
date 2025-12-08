@@ -4,7 +4,12 @@ const args = process.argv.slice(2);
 const shouldBuild = args.includes("--build");
 const shouldCompile = args.includes("--compile");
 const shouldCommit = args.includes("--commit");
+const shouldRelease = args.includes("--release");
 const shouldRun = args.includes("--run");
+
+if (shouldRelease) {
+   await $`bun run git/release.ts ${args}`;
+}
 
 let buildConfig: BuildConfig = {
    entrypoints: [
@@ -80,6 +85,10 @@ if (shouldCommit) {
    }
    console.timeEnd("commit");
    console.log()
+}
+
+if (shouldRelease && buildSuccess && compileSuccess) {
+   await $`bun run git/release.ts --create`;
 }
 
 if (shouldRun && buildSuccess && compileSuccess && commitSuccess) {
