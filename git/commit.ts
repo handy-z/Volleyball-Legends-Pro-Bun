@@ -76,10 +76,10 @@ async function main() {
   });
 
   try {
-    console.time(`Committing "${message}"...`);
+    console.time(`Committing "${message}" ...`);
     await run(["git", "commit", "-m", message]);
     committed = true;
-    console.timeEnd(`Committing "${message}"...`);
+    console.timeEnd(`Committing "${message}" ...`);
 
     console.time("Pushing to origin main...");
     await run(["git", "push", "origin", "main"]);

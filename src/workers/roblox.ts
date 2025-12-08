@@ -6,6 +6,7 @@ import { isRobloxForeground, isRobloxFullscreen } from "../utils";
 const workerLog = new Logger(["WORKER", "magenta"], ["ROBLOX", "gray"]);
 
 let active = false;
+
 function update() {
    const isNowActive = isRobloxForeground() && isRobloxFullscreen();
    if (isNowActive !== active) {

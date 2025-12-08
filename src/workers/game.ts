@@ -1,18 +1,18 @@
 declare var self: Worker;
 let robloxPort: MessagePort;
 import "../global";
-import { gameStates, robloxStates } from "../states";
+import { gameStates, robloxStates, type GameStateShape } from "../states";
 import { checkPixelColor } from "../utils";
 
 const workerLog = new Logger(["WORKER", "magenta"], ["GAME", "gray"]);
 
 export interface WatchConfig {
-   name: keyof typeof gameStates;
+   name: keyof GameStateShape;
    point: [number, number];
    target: [number, number, number];
    tolerance?: number;
    conditions?: {
-      name: keyof typeof gameStates;
+      name: keyof GameStateShape;
       value: boolean;
    }[];
    pollInterval?: number;
@@ -30,7 +30,7 @@ const watchers: WatchConfig[] = [
       name: "is_shift_lock",
       point: [1807, 969],
       target: [47, 85, 104],
-      tolerance: 5,
+      tolerance: 10,
       pollInterval: 1,
    },
    {
@@ -39,73 +39,77 @@ const watchers: WatchConfig[] = [
       target: [255, 255, 255],
       pollInterval: 1,
    },
-   // {
-   //    name: "is_toss",
-   //    point: [956, 1040],
-   //    target: [229, 164, 93],
-   //    pollInterval: 50,
-   // },
-   // {
-   //    name: "is_bar_arrow",
-   //    point: [855, 853],
-   //    target: [239, 239, 239],
-   //    pollInterval: 1,
-   //    conditions: [{ name: "is_toss", value: true }],
-   // },
 ];
 
 let isActive = false;
+let watcherAbortController: AbortController | null = null;
 
 function checkConditions(conditions?: WatchConfig["conditions"]): boolean {
    if (!conditions) return true;
    for (const c of conditions) {
-      const cValue = gameStates[c.name];
+      const cValue = gameStates.get(c.name);
       if (cValue !== c.value) return false;
    }
    return true;
 }
 
-async function watchState(config: WatchConfig) {
-   while (isActive) {
+async function watchState(config: WatchConfig, signal: AbortSignal) {
+   while (!signal.aborted && isActive) {
       await Bun.sleep(config.pollInterval ?? 5);
-      if (!checkConditions(config.conditions)) {
-         continue;
-      }
+
+      if (signal.aborted) break;
+      if (!checkConditions(config.conditions)) continue;
+
       const isMatch = checkPixelColor(
          config.point,
          config.target,
          config.tolerance ?? 0
       );
-      const lastMatch = gameStates[config.name];
+      const lastMatch = gameStates.get(config.name);
 
       if (isMatch !== lastMatch) {
          self.postMessage({
             name: config.name,
             value: isMatch,
          });
-         gameStates[config.name] = isMatch;
+         gameStates.set(config.name, isMatch);
       }
    }
 }
 
 function startAllWatchers() {
+   stopAllWatchers();
+   watcherAbortController = new AbortController();
+
    for (const watcher of watchers) {
-      watchState(watcher).catch((err) => {
-         workerLog.error(`Watcher ${watcher.name} failed:`, err);
+      watchState(watcher, watcherAbortController.signal).catch((err) => {
+         if (err.name !== "AbortError") {
+            workerLog.error(`Watcher ${watcher.name} failed:`, err);
+         }
       });
    }
+}
+
+function stopAllWatchers() {
+   if (watcherAbortController) {
+      watcherAbortController.abort();
+      watcherAbortController = null;
+   }
+   gameStates.reset();
 }
 
 async function watchRoblox() {
    while (true) {
       await Bun.sleep(100);
-      if (robloxStates.is_active !== isActive) {
-         isActive = robloxStates.is_active;
+      const robloxActive = robloxStates.get("is_active");
+      if (robloxActive !== isActive) {
+         isActive = robloxActive;
          if (isActive) {
             workerLog.info("started");
             startAllWatchers();
          } else {
             workerLog.info("stopped");
+            stopAllWatchers();
          }
       }
    }
@@ -121,8 +125,9 @@ self.onmessage = ({ data }) => {
    if (data instanceof MessagePort) {
       robloxPort = data;
       robloxPort.onmessage = ({ data }) => {
-         if (data.name in robloxStates)
-            robloxStates[data.name as keyof typeof robloxStates] = data.value;
+         if (data.name in robloxStates.toObject()) {
+            robloxStates.set(data.name, data.value);
+         }
       };
       init();
    }
