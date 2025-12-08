@@ -1,0 +1,20 @@
+{
+   "dependencies": {
+      "winput": "^2.1.7"
+   },
+   "name": "vvb1",
+   "module": "src/index.ts",
+   "type": "module",
+   "private": true,
+   "devDependencies": {
+      "@types/bun": "latest"
+   },
+   "peerDependencies": {
+      "typescript": "^5"
+   },
+   "scripts": {
+      "build": "bun run scripts.ts --build --run",
+      "compile": "bun run scripts.ts --compile --run",
+      "commit": "bun run scripts.ts --commit"
+   }
+}
