@@ -85,7 +85,6 @@ async function handleRelease() {
    
    if (exitCode === 0) {
       console.log(`Release ${tagName} already exists.`);
-      // Clean up backup if it exists
       const backupFile = Bun.file(".version_backup");
       if (await backupFile.exists()) {
          await backupFile.delete();
