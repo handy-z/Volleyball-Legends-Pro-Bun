@@ -58,13 +58,25 @@ async function main() {
   const date = formatDate();
   const message = `@${username} ${date} x${count}`;
 
-  console.time("Committing...");
-  await run(["git", "commit", "-m", message]);
-  console.timeEnd("Committing...");
+  let committed = false;
+  try {
+    console.time("Committing...");
+    await run(["git", "commit", "-m", message]);
+    committed = true;
+    console.timeEnd("Committing...");
 
-  console.time("Pushing to origin main...");
-  await run(["git", "push", "origin", "main"]);
-  console.timeEnd("Pushing to origin main...");
+    console.time("Pushing to origin main...");
+    await run(["git", "push", "origin", "main"]);
+    console.timeEnd("Pushing to origin main...");
+  } catch (error) {
+    console.error("An error occurred. Rolling back changes...");
+    if (committed) {
+      await run(["git", "reset", "HEAD~1"]);
+    } else {
+      await run(["git", "reset"]);
+    }
+    throw error;
+  }
 }
 
 main().catch(err => {
