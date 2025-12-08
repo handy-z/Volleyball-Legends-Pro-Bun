@@ -37,6 +37,7 @@ if (shouldBuild) {
       console.log("Build Complete.");
    }
    console.timeEnd("build");
+   console.log()
 }
 
 let compileSuccess = true;
@@ -46,7 +47,7 @@ if (shouldCompile) {
    console.log("Compiling...");
    (<CompileBuildConfig>buildConfig).compile = {
       target: "bun-windows-x64",
-      outfile: "vvb",
+      outfile: "vbl-pro-bun",
    };
    const result = await build(buildConfig);
 
@@ -59,6 +60,7 @@ if (shouldCompile) {
       console.log("Compile Complete.");
    }
    console.timeEnd("compile");
+   console.log()
 }
 
 let commitSuccess = true;
@@ -77,9 +79,10 @@ if (shouldCommit) {
       console.log("Commit Complete.");
    }
    console.timeEnd("commit");
+   console.log()
 }
 
 if (shouldRun && buildSuccess && compileSuccess && commitSuccess) {
    if (shouldBuild) await $`bun run dist/index.js`;
-   else if (shouldCompile) await $`./vvb.exe`;
+   else if (shouldCompile) await $`./vbl-pro-bun.exe`;
 }

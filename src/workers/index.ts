@@ -18,7 +18,7 @@ const gamePath = path.join(path.dirname(Bun.main), "workers/game.js");
 export let robloxDetection: Worker;
 export let gameDetection: Worker;
 
-if (process.execPath.endsWith('vvb.exe')) {
+if (process.execPath.endsWith('vbl-pro-bun.exe')) {
 
    robloxDetection = await createWorkerFromFile(robloxPath, {
       type: "module",

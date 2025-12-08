@@ -1,5 +1,5 @@
 {
-   "name": "vvb1",
+   "name": "vbl-pro-ts",
    "module": "src/index.ts",
    "type": "module",
    "private": true,
@@ -13,6 +13,7 @@
    "scripts": {
       "build": "bun run scripts.ts --build --run",
       "compile": "bun run scripts.ts --compile --run",
-      "commit": "bun run scripts.ts --commit"
+      "commit": "bun run scripts.ts --build --compile --commit",
+      "run": "bun run scripts.ts --run"
    }
 }

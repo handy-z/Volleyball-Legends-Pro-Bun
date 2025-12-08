@@ -6,10 +6,15 @@ async function run(cmd: string[]) {
   await proc.exited;
 
   if (proc.exitCode !== 0) {
-    throw new Error(stderr || `Command failed: ${cmd.join(" ")}`);
+    throw new Error(stderr || stdout || `Command failed: ${cmd.join(" ")}`);
   }
 
   return stdout.trim();
+}
+
+async function hasChanges(): Promise<boolean> {
+  const status = await run(["git", "status", "--porcelain"]);
+  return status.length > 0;
 }
 
 async function getUsername(): Promise<string> {
@@ -42,6 +47,11 @@ async function main() {
   console.time("Staging all changes...");
   await run(["git", "add", "."]);
   console.timeEnd("Staging all changes...");
+
+  if (!(await hasChanges())) {
+    console.log("Nothing to commit.");
+    return;
+  }
 
   const count = await getCommitCount();
 
