@@ -2,6 +2,8 @@ structure.ts
 structure.md
 bun.lock
 .version_backup
+/build
+/dist
 
 vbl-pro-bun.zip
 vbl-pro-bun.exe
