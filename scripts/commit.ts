@@ -4,7 +4,7 @@ export async function runCommit(): Promise<boolean> {
   console.time("commit");
   console.log("Committing...");
 
-  const result = await $`bun run git/commit.ts`;
+  const result = await $`bun run scripts/github/commit.ts`;
   const success = result.exitCode === 0;
 
   if (!success) {

@@ -1,5 +1,5 @@
 import { $ } from "bun";
-import packageJson from "../package.json" with { type: "json" };
+import packageJson from "../../package.json" with { type: "json" };
 const args = process.argv.slice(2);
 const shouldPatch = args.includes("--patch");
 const shouldMinor = args.includes("--minor");

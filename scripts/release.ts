@@ -1,7 +1,7 @@
 import { $ } from "bun";
 
 export async function runRelease(args: string[]): Promise<void> {
-  await $`bun run git/release.ts ${args}`;
+  await $`bun run scripts/github/release.ts ${args}`;
 }
 
 export async function runZipAndRelease(): Promise<void> {
@@ -28,5 +28,5 @@ export async function runZipAndRelease(): Promise<void> {
   console.timeEnd("zip");
   console.log();
 
-  await $`bun run git/release.ts --create`;
+  await $`bun run scripts/github/release.ts --create`;
 }
