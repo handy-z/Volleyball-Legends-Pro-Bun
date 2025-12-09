@@ -1,4 +1,6 @@
-import { pauseListeners, resumeListeners } from "../utils";
+import { pauseListeners, resumeListeners, LoggerClass } from "../utils";
+
+const logger = new LoggerClass(["WORKER", "cyan"]);
 import {
   gameStates,
   robloxStates,
@@ -83,7 +85,7 @@ async function createWorker(
   worker.onerror = (event: ErrorEvent) => {
     const error = new Error(`Worker "${name}" error: ${event.message}`);
     setWorkerError(name, error);
-    console.error(`[Worker:${name}] Error:`, event.message);
+    logger.error(`[${name}] Error:`, event.message);
   };
 
   setWorkerReady(name);
@@ -135,9 +137,9 @@ async function initializeWorkers(): Promise<void> {
       handleGameMessage(data);
     };
 
-    console.log("[Workers] Initialized successfully");
+    logger.success("Initialized successfully");
   } catch (error) {
-    console.error("[Workers] Failed to initialize:", error);
+    logger.error("Failed to initialize:", error);
     throw error;
   }
 }
@@ -146,15 +148,15 @@ export function terminateWorkers(): void {
   try {
     if (robloxDetection) {
       robloxDetection.terminate();
-      console.log("[Worker:roblox] Terminated");
+      logger.info("[roblox] Terminated");
     }
     if (gameDetection) {
       gameDetection.terminate();
-      console.log("[Worker:game] Terminated");
+      logger.info("[game] Terminated");
     }
     workerStates.clear();
   } catch (error) {
-    console.error("[Workers] Error during termination:", error);
+    logger.error("Error during termination:", error);
   }
 }
 

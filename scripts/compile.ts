@@ -7,6 +7,7 @@ export async function runCompile(): Promise<boolean> {
 
   const config: CompileBuildConfig = {
     ...buildConfig,
+    outdir: "./build",
     splitting: undefined,
     sourcemap: "none",
     compile: {

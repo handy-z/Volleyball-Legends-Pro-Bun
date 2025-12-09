@@ -2,6 +2,7 @@ import { mouse, keyboard } from "winput";
 import { gameStates, robloxStates } from "../../states";
 import { createHandler } from "../types";
 import { waitFor, withLock } from "../utils";
+import { getConfig } from "../../config";
 
 function shouldAbort(): boolean {
   return (
@@ -34,9 +35,19 @@ export default createHandler("x2", {
             await Bun.sleep(50);
           }
 
-          keyboard.press("space");
-          await waitFor(() => !gameStates.get("is_on_ground"), shouldAbort);
-          keyboard.release("space");
+          if (
+            getConfig().skill_mode == "boomjump" &&
+            gameStates.get("skill_toggle") &&
+            gameStates.get("is_skill_ready")
+          ) {
+            keyboard.press("ctrl");
+            await waitFor(() => !gameStates.get("is_on_ground"), shouldAbort);
+            keyboard.release("ctrl");
+          } else {
+            keyboard.press("space");
+            await waitFor(() => !gameStates.get("is_on_ground"), shouldAbort);
+            keyboard.release("space");
+          }
 
           if (!isShift) {
             keyboard.release("shift");
@@ -52,16 +63,13 @@ export default createHandler("x2", {
       if (!mouse.isPressed("x1")) {
         await waitFor(() => !gameStates.get("is_on_ground"), shouldAbort);
         if (
+          getConfig().skill_mode == "normal" &&
           gameStates.get("skill_toggle") &&
           gameStates.get("is_skill_ready")
         ) {
           keyboard.press("ctrl");
           await keyboard.waitForPress("ctrl");
           keyboard.release("ctrl");
-          // await waitFor(
-          //    () => !gameStates.get("is_skill_ready"),
-          //    shouldAbort
-          // );
         }
         mouse.click();
       }

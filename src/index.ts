@@ -1,4 +1,5 @@
 import "./global";
+import "./config";
 import "./listeners";
 import { robloxDetection, gameDetection, terminateWorkers } from "./workers";
 import { releaseDesktopDC } from "./utils";

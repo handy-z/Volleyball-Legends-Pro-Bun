@@ -8,7 +8,7 @@ export async function runApp(mode: RunMode): Promise<void> {
       await $`bun run dist/index.js`;
       break;
     case "compile":
-      await $`./vbl-pro-bun.exe`;
+      await $`./build/vbl-pro-bun.exe`;
       break;
     case "dev":
       await $`bun run src/index.ts`;

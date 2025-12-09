@@ -1,1 +1,1 @@
-bun run scripts.ts --compile --run
+bun run scripts.ts --run
