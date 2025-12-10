@@ -4,6 +4,21 @@ import { spawn } from "child_process";
 import { tmpdir } from "os";
 import { join, dirname, basename } from "path";
 import { existsSync, rmSync, mkdirSync, writeFileSync } from "fs";
+import { createInterface } from "readline";
+
+function promptUser(question: string): Promise<string> {
+  const rl = createInterface({
+    input: process.stdin,
+    output: process.stdout,
+  });
+
+  return new Promise((resolve) => {
+    rl.question(question, (answer) => {
+      rl.close();
+      resolve(answer.trim().toLowerCase());
+    });
+  });
+}
 
 const GITHUB_API_URL =
   "https://api.github.com/repos/wuw-shz/Volleyball-Legends-Pro-Bun/releases/latest";
@@ -219,6 +234,13 @@ export async function runUpdateCheck(): Promise<void> {
     }
 
     logger.info(`New version available: v${updateInfo.version}`);
+
+    const answer = await promptUser("Do you want to update? (y/n): ");
+
+    if (answer !== "y" && answer !== "yes") {
+      logger.info("Update skipped by user.");
+      return;
+    }
 
     const zipPath = await downloadUpdate(updateInfo.downloadUrl);
     const exePath = await extractUpdate(zipPath);
