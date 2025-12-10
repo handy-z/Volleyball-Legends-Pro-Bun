@@ -35,7 +35,10 @@ function validateConfig(raw: Partial<AppConfig>): AppConfig {
   };
 
   if (!VALID_SKILL_MODES.includes(merged.skill_mode)) {
-    merged.skill_mode = DEFAULT_CONFIG.skill_mode;
+    logger.warn(
+      `Invalid skill_mode: "${merged.skill_mode}". Valid values: ${VALID_SKILL_MODES.join(", ")}`,
+    );
+    process.exit(1);
   }
 
   return merged;
@@ -55,7 +58,8 @@ export async function loadConfig(): Promise<AppConfig> {
     }
   } catch (error) {
     logger.error("Error loading config:", error);
-    config = { ...DEFAULT_CONFIG };
+    logger.warn("Please fix your config.json file and try again.");
+    process.exit(1);
   }
 
   return config;
