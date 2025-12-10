@@ -1,7 +1,7 @@
 import "./global";
 import "./config";
 import "./listeners";
-import { releaseDesktopDC } from "./utils";
+import { releaseDesktopDC, runUpdateCheck } from "./utils";
 import { robloxDetection, gameDetection, terminateWorkers } from "./workers";
 
 function shutdown(signal: string) {
@@ -16,6 +16,8 @@ process.on("SIGTERM", () => shutdown("SIGTERM"));
 
 (async () => {
   try {
+    await runUpdateCheck();
+
     const [robloxReady, gameReady] = await Promise.all([
       new Promise<boolean>((res) => {
         robloxDetection.addEventListener(

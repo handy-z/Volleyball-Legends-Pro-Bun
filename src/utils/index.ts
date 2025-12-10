@@ -5,3 +5,4 @@ export * from "./window";
 export * from "./screen";
 export * from "./roblox";
 export * from "./listener";
+export * from "./updater";
