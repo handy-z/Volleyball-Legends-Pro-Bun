@@ -1,10 +1,17 @@
 import { build, CompileBuildConfig } from "bun";
 import { buildConfig } from "./build";
+import { rmSync, existsSync } from "fs";
+import packageJson from "../package.json" with { type: "json" };
 
 export async function runCompile(): Promise<boolean> {
   console.time("compile");
   console.log("Compiling...");
 
+  if (existsSync("./build")) {
+    rmSync("./build", { recursive: true });
+  }
+
+  const version = packageJson.version;
   const config: CompileBuildConfig = {
     ...buildConfig,
     outdir: "./build",
@@ -12,7 +19,7 @@ export async function runCompile(): Promise<boolean> {
     sourcemap: "none",
     compile: {
       target: "bun-windows-x64",
-      outfile: "vbl-pro-bun",
+      outfile: `vbl-pro-bun-v${version}`,
     },
   };
 

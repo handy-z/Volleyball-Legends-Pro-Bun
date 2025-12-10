@@ -71,7 +71,7 @@ export function getConfig(): AppConfig {
 }
 
 function generateTomlWithComments(cfg: AppConfig): string {
-  return `skill_mode = "${cfg.skill_mode}"  # ${VALID_SKILL_MODES.join(", ")}
+  return `skill_mode="${cfg.skill_mode}"  # ${VALID_SKILL_MODES.join(", ")}
 `;
 }
 
