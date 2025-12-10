@@ -40,6 +40,29 @@ export async function runBumpVersion(bumpType: BumpType): Promise<boolean> {
   const newVersion = bumpVersion(packageJson.version, bumpType);
   console.log(`Bumping version: ${packageJson.version} -> ${newVersion}`);
   packageJson.version = newVersion;
-  await Bun.write("package.json", JSON.stringify(packageJson, null, 3));
+  await Bun.write("package.json", JSON.stringify(packageJson, null, 2));
   return true;
+}
+
+export async function rollbackVersion(): Promise<void> {
+  const backupFile = Bun.file(".version_backup");
+  if (await backupFile.exists()) {
+    console.log("\nRolling back version...");
+    const originalVersion = await backupFile.text();
+    const currentPackageJson = await Bun.file("package.json").json();
+    currentPackageJson.version = originalVersion;
+    await Bun.write(
+      "package.json",
+      JSON.stringify(currentPackageJson, null, 2),
+    );
+    await backupFile.delete();
+    console.log(`Rolled back version to ${originalVersion}`);
+  }
+}
+
+export async function cleanupVersionBackup(): Promise<void> {
+  const backupFile = Bun.file(".version_backup");
+  if (await backupFile.exists()) {
+    await backupFile.delete();
+  }
 }

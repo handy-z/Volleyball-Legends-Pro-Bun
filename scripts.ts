@@ -4,7 +4,12 @@ import { runCompile } from "./scripts/compile";
 import { runPrettier } from "./scripts/prettier";
 import { runRelease, runZipAndRelease } from "./scripts/release";
 import { runApp } from "./scripts/run";
-import { getBumpType, runBumpVersion } from "./scripts/version";
+import {
+  getBumpType,
+  runBumpVersion,
+  rollbackVersion,
+  cleanupVersionBackup,
+} from "./scripts/version";
 
 const args = process.argv.slice(2);
 
@@ -16,36 +21,74 @@ if (bumpType) {
   await runBumpVersion(bumpType);
 }
 
+process.on("SIGINT", async () => {
+  console.log("\nProcess terminated by user.");
+  if (bumpType) {
+    await rollbackVersion();
+  }
+  process.exit(1);
+});
+
+async function handleFailure(step: string): Promise<never> {
+  console.error(`\n${step} failed!`);
+  if (bumpType) {
+    await rollbackVersion();
+  }
+  process.exit(1);
+}
+
 for (const arg of args) {
   switch (arg) {
     case "--release":
       await runRelease(args);
       break;
     case "--prettier":
-      results.push({ success: await runPrettier(), type: "prettier" });
+      const prettierSuccess = await runPrettier();
+      results.push({ success: prettierSuccess, type: "prettier" });
+      if (!prettierSuccess) await handleFailure("Prettier");
       break;
     case "--build":
-      results.push({ success: await runBuild(), type: "build" });
+      const buildSuccess = await runBuild();
+      results.push({ success: buildSuccess, type: "build" });
+      if (!buildSuccess) await handleFailure("Build");
       break;
     case "--compile":
-      results.push({ success: await runCompile(), type: "compile" });
+      const compileSuccess = await runCompile();
+      results.push({ success: compileSuccess, type: "compile" });
+      if (!compileSuccess) await handleFailure("Compile");
       break;
     case "--commit":
-      results.push({ success: await runCommit(), type: "commit" });
+      const commitSuccess = await runCommit();
+      results.push({ success: commitSuccess, type: "commit" });
+      if (!commitSuccess) await handleFailure("Commit");
       break;
   }
 }
 
-const buildSuccess = results.find((r) => r.type === "build")?.success ?? true;
-const compileSuccess =
+const allBuildSuccess =
+  results.find((r) => r.type === "build")?.success ?? true;
+const allCompileSuccess =
   results.find((r) => r.type === "compile")?.success ?? true;
-const commitSuccess = results.find((r) => r.type === "commit")?.success ?? true;
+const allCommitSuccess =
+  results.find((r) => r.type === "commit")?.success ?? true;
 
-if (args.includes("--release") && buildSuccess && compileSuccess) {
-  await runZipAndRelease();
+if (args.includes("--release") && allBuildSuccess && allCompileSuccess) {
+  try {
+    await runZipAndRelease();
+    await cleanupVersionBackup();
+  } catch {
+    await handleFailure("Release");
+  }
+} else if (bumpType) {
+  await cleanupVersionBackup();
 }
 
-if (args.includes("--run") && buildSuccess && compileSuccess && commitSuccess) {
+if (
+  args.includes("--run") &&
+  allBuildSuccess &&
+  allCompileSuccess &&
+  allCommitSuccess
+) {
   if (args.includes("--build")) await runApp("build");
   else if (args.includes("--compile")) await runApp("compile");
   else await runApp("dev");
