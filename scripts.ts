@@ -4,11 +4,17 @@ import { runCompile } from "./scripts/compile";
 import { runPrettier } from "./scripts/prettier";
 import { runRelease, runZipAndRelease } from "./scripts/release";
 import { runApp } from "./scripts/run";
+import { getBumpType, runBumpVersion } from "./scripts/version";
 
 const args = process.argv.slice(2);
 
 type TaskResult = { success: boolean; type: string };
 const results: TaskResult[] = [];
+
+const bumpType = getBumpType(args);
+if (bumpType) {
+  await runBumpVersion(bumpType);
+}
 
 for (const arg of args) {
   switch (arg) {
