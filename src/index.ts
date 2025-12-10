@@ -2,6 +2,9 @@ import "./global";
 import "./config";
 import "./listeners";
 import { releaseDesktopDC, runUpdateCheck } from "./utils";
+import packageJson from "../package.json" with { type: "json" };
+
+process.stdout.write(`\x1b]0;VBL Pro v${packageJson.version}\x07`);
 import { robloxDetection, gameDetection, terminateWorkers } from "./workers";
 
 function shutdown(signal: string) {
