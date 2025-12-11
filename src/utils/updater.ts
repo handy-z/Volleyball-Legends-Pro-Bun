@@ -5,6 +5,10 @@ import { join, dirname, basename } from "path";
 import { existsSync, rmSync, mkdirSync, writeFileSync } from "fs";
 import { createInterface } from "readline";
 
+// ---------------------------
+// Helpers
+// ---------------------------
+
 function promptUser(question: string): Promise<string> {
   const rl = createInterface({
     input: process.stdin,
@@ -38,16 +42,26 @@ interface UpdateInfo {
   assetName: string;
 }
 
-function compareVersions(v1: string, v2: string): number {
-  const normalize = (v: string) => v.replace(/^v/, "").split(".").map(Number);
-  const [major1, minor1, patch1] = normalize(v1);
-  const [major2, minor2, patch2] = normalize(v2);
+// ---------------------------
+// Version Compare
+// ---------------------------
 
-  if (major1 !== major2) return major1 > major2 ? 1 : -1;
-  if (minor1 !== minor2) return minor1 > minor2 ? 1 : -1;
-  if (patch1 !== patch2) return patch1 > patch2 ? 1 : -1;
-  return 0;
+function compareVersions(v1: string, v2: string): number {
+  const normalize = (v: string) =>
+    v
+      .replace(/^v/, "")
+      .split(".")
+      .map((n) => Number(n) || 0);
+
+  const [a1, b1, c1] = normalize(v1);
+  const [a2, b2, c2] = normalize(v2);
+
+  return a1 - a2 || b1 - b2 || c1 - c2 || 0;
 }
+
+// ---------------------------
+// Fetch Latest Release Info
+// ---------------------------
 
 export async function checkForUpdates(): Promise<UpdateInfo | null> {
   try {
@@ -72,12 +86,12 @@ export async function checkForUpdates(): Promise<UpdateInfo | null> {
       return null;
     }
 
-    const zipAsset = release.assets.find((asset) =>
-      asset.name.endsWith(".zip"),
+    const zipAsset = release.assets.find((a) =>
+      a.name.toLowerCase().endsWith(".zip"),
     );
 
     if (!zipAsset) {
-      logger.warn("No zip asset found in latest release");
+      logger.warn("Latest release has no .zip asset");
       return null;
     }
 
@@ -86,165 +100,179 @@ export async function checkForUpdates(): Promise<UpdateInfo | null> {
       downloadUrl: zipAsset.browser_download_url,
       assetName: zipAsset.name,
     };
-  } catch (error) {
-    logger.warn("Update check failed:", error);
+  } catch (err) {
+    logger.warn("Update check failed:", err);
     return null;
   }
 }
 
+// ---------------------------
+// Download Update
+// ---------------------------
+
+function createTempDir(): string {
+  const dir = join(tmpdir(), "vbl-pro-update");
+  if (existsSync(dir)) rmSync(dir, { recursive: true });
+  mkdirSync(dir, { recursive: true });
+  return dir;
+}
+
 export async function downloadUpdate(url: string): Promise<string> {
-  const tempDir = join(tmpdir(), "vbl-pro-update");
-
-  if (existsSync(tempDir)) {
-    rmSync(tempDir, { recursive: true });
-  }
-  mkdirSync(tempDir, { recursive: true });
-
+  const tempDir = createTempDir();
   const zipPath = join(tempDir, "update.zip");
 
   logger.info("Downloading update...");
-  const response = await fetch(url);
 
-  if (!response.ok) {
-    throw new Error(`Download failed: HTTP ${response.status}`);
-  }
+  const resp = await fetch(url);
+  if (!resp.ok) throw new Error(`Download failed: HTTP ${resp.status}`);
 
-  const buffer = await response.arrayBuffer();
-  await Bun.write(zipPath, buffer);
+  await Bun.write(zipPath, await resp.arrayBuffer());
 
   logger.info("Download complete");
   return zipPath;
 }
 
+// ---------------------------
+// Extract Update
+// ---------------------------
+
 export async function extractUpdate(zipPath: string): Promise<string> {
   const tempDir = join(tmpdir(), "vbl-pro-update");
   const extractDir = join(tempDir, "extracted");
 
-  if (existsSync(extractDir)) {
-    rmSync(extractDir, { recursive: true });
-  }
-  mkdirSync(extractDir, { recursive: true });
+  if (existsSync(extractDir)) rmSync(extractDir, { recursive: true });
+  mkdirSync(extractDir);
 
   logger.info("Extracting update...");
 
-  const proc = Bun.spawn(
+  const ps = Bun.spawn(
     [
       "powershell",
       "-NoProfile",
       "-Command",
-      `Expand-Archive -Path '${zipPath}' -DestinationPath '${extractDir}' -Force`,
+      `Expand-Archive -LiteralPath '${zipPath}' -DestinationPath '${extractDir}' -Force`,
     ],
     { stdout: "pipe", stderr: "pipe" },
   );
 
-  const exitCode = await proc.exited;
-  if (exitCode !== 0) {
-    const stderr = await new Response(proc.stderr).text();
+  const exit = await ps.exited;
+  if (exit !== 0) {
+    const stderr = await new Response(ps.stderr).text();
     throw new Error(`Extraction failed: ${stderr}`);
   }
 
   const files = await Array.fromAsync(
     new Bun.Glob("*.exe").scan({ cwd: extractDir }),
   );
-  if (files.length === 0) {
-    throw new Error("No exe file found in the update");
+
+  if (!files.length) {
+    throw new Error("Update zip contains no .exe file");
   }
 
-  const exePath = join(extractDir, files[0]);
   logger.info("Extraction complete");
-  return exePath;
+
+  return join(extractDir, files[0]);
 }
+
+// ---------------------------
+// Apply Update
+// ---------------------------
 
 export async function applyUpdate(
   newExePath: string,
   newVersion: string,
 ): Promise<void> {
-  const currentExePath = process.execPath;
-  const currentDir = dirname(currentExePath);
-  const currentExeName = basename(currentExePath);
+  const oldExePath = process.execPath;
+  const oldDir = dirname(oldExePath);
+  const parentDir = dirname(oldDir);
+  const oldFolderName = basename(oldDir);
 
-  const newExeName = currentExeName.replace(
-    /v[\d.]+\.exe$/i,
-    `v${newVersion}.exe`,
-  );
-  const targetExePath = join(currentDir, newExeName);
+  const newFolderName = `vbl-pro-bun-v${newVersion}`;
+  const newFolderPath = join(parentDir, newFolderName);
+
+  const oldExeName = basename(oldExePath);
+  const newExeName = oldExeName.replace(/v[\d.]+\.exe$/i, `v${newVersion}.exe`);
+
+  const finalExePath = join(newFolderPath, newExeName);
 
   const tempDir = join(tmpdir(), "vbl-pro-update");
   const batchPath = join(tempDir, "update.bat");
 
-  const batchScript = `
+  const script = `
 @echo off
 title VBL Pro Updater
+
 echo Waiting for application to close...
-timeout /t 2 /nobreak > nul
-
 :waitloop
-tasklist /FI "PID eq ${process.pid}" 2>NUL | find "${process.pid}" >NUL
-if "%ERRORLEVEL%"=="0" (
-    timeout /t 1 /nobreak > nul
-    goto waitloop
+tasklist /FI "PID eq ${process.pid}" | find "${process.pid}" >nul
+if %errorlevel%==0 (
+  timeout /t 1 >nul
+  goto waitloop
 )
 
-echo Applying update...
-copy /Y "${newExePath}" "${targetExePath}"
-if %ERRORLEVEL% neq 0 (
-    echo Update failed!
-    pause
-    exit /b 1
+echo Renaming folder...
+ren "${oldDir}" "${newFolderName}"
+if %errorlevel% neq 0 (
+  echo Folder rename failed!
+  pause
+  exit /b 1
 )
 
-if not "${currentExePath}"=="${targetExePath}" (
-    echo Removing old version...
-    del /F "${currentExePath}"
+echo Copying new version...
+copy /Y "${newExePath}" "${finalExePath}" >nul
+if %errorlevel% neq 0 (
+  echo EXE copy failed!
+  pause
+  exit /b 1
 )
 
-echo Update complete! Starting application...
-start "" "${targetExePath}"
+echo Starting new version...
+start "" "${finalExePath}"
 
 echo Cleaning up...
-timeout /t 2 /nobreak > nul
+timeout /t 2 >nul
 rd /s /q "${tempDir}"
 exit
 `.trim();
 
-  writeFileSync(batchPath, batchScript, { encoding: "utf8" });
+  writeFileSync(batchPath, script, "utf8");
 
-  logger.info("Applying update - application will restart...");
+  logger.info(
+    `Applying update → renaming folder to "${newFolderName}" and restarting...`,
+  );
 
   spawn("cmd.exe", ["/c", batchPath], {
     detached: true,
     stdio: "ignore",
-    windowsHide: false,
   }).unref();
 
-  await Bun.sleep(500);
-
+  await Bun.sleep(300);
   process.exit(0);
 }
 
-export async function runUpdateCheck(): Promise<void> {
+// ---------------------------
+// Main Entry
+// ---------------------------
+
+export async function runUpdateCheck() {
+  logger.info("Checking for updates...");
+
   try {
-    logger.info("Checking for updates...");
+    const info = await checkForUpdates();
+    if (!info) return;
 
-    const updateInfo = await checkForUpdates();
+    logger.info(`New version available: v${info.version}`);
 
-    if (!updateInfo) {
+    const ans = await promptUser("Update now? (y/n): ");
+    if (!["y", "yes"].includes(ans)) {
+      logger.info("Update canceled by user.");
       return;
     }
 
-    logger.info(`New version available: v${updateInfo.version}`);
-
-    const answer = await promptUser("Do you want to update? (y/n): ");
-
-    if (answer !== "y" && answer !== "yes") {
-      logger.info("Update skipped by user.");
-      return;
-    }
-
-    const zipPath = await downloadUpdate(updateInfo.downloadUrl);
-    const exePath = await extractUpdate(zipPath);
-    await applyUpdate(exePath, updateInfo.version);
-  } catch (error) {
-    logger.warn("Update failed, continuing with current version:", error);
+    const zip = await downloadUpdate(info.downloadUrl);
+    const exe = await extractUpdate(zip);
+    await applyUpdate(exe, info.version);
+  } catch (err) {
+    logger.warn("Update failed, continuing normally:", err);
   }
 }
