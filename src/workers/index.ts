@@ -1,4 +1,5 @@
 import { pauseListeners, resumeListeners, LoggerClass } from "../utils";
+import { loadConfig } from "../config";
 
 const logger = new LoggerClass(["WORKER", "cyan"]);
 import {
@@ -99,6 +100,7 @@ function handleRobloxMessage(data: RobloxWorkerMessage): void {
     robloxStates.set(data.name, data.value as boolean);
     if (data.name === "is_active") {
       if (data.value) {
+        loadConfig();
         resumeListeners();
       } else {
         pauseListeners();

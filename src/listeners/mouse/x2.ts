@@ -32,7 +32,7 @@ export default createHandler("x2", {
 
           if (!isShift) {
             keyboard.press("shift");
-            await Bun.sleep(50);
+            await Bun.sleep(25);
           }
 
           if (
@@ -40,11 +40,10 @@ export default createHandler("x2", {
             gameStates.get("skill_toggle") &&
             gameStates.get("is_skill_ready")
           ) {
-            keyboard.press("ctrl");
+            keyboard.tap("ctrl");
             await waitFor(() => !gameStates.get("is_on_ground"), shouldAbort);
-            keyboard.release("ctrl");
           } else {
-            keyboard.press("space");
+            keyboard.tap("space");
             await waitFor(() => !gameStates.get("is_on_ground"), shouldAbort);
             keyboard.release("space");
           }
@@ -67,9 +66,8 @@ export default createHandler("x2", {
           gameStates.get("skill_toggle") &&
           gameStates.get("is_skill_ready")
         ) {
-          keyboard.press("ctrl");
-          await keyboard.waitForPress("ctrl");
-          keyboard.release("ctrl");
+          keyboard.tap("ctrl");
+          await keyboard.waitForRelease("ctrl");
         }
         mouse.click();
       }

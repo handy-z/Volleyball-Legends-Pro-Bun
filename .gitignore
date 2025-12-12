@@ -4,6 +4,7 @@ bun.lock
 .version_backup
 /build
 /dist
+/test
 
 config.toml
 vbl-pro-bun.zip

@@ -126,7 +126,49 @@ export async function downloadUpdate(url: string): Promise<string> {
   const resp = await fetch(url);
   if (!resp.ok) throw new Error(`Download failed: HTTP ${resp.status}`);
 
-  await Bun.write(zipPath, await resp.arrayBuffer());
+  const contentLength = Number(resp.headers.get("content-length")) || 0;
+  const reader = resp.body?.getReader();
+
+  if (!reader) {
+    throw new Error("Failed to get response reader");
+  }
+
+  const chunks: Uint8Array[] = [];
+  let downloaded = 0;
+  let lastPercent = -1;
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+
+    chunks.push(value);
+    downloaded += value.length;
+
+    if (contentLength > 0) {
+      const percent = Math.round((downloaded / contentLength) * 100);
+      if (percent !== lastPercent) {
+        process.stdout.write(`\rDownloading: ${percent}%`);
+        lastPercent = percent;
+      }
+    } else {
+      process.stdout.write(
+        `\rDownloading: ${(downloaded / 1024 / 1024).toFixed(1)} MB`,
+      );
+    }
+  }
+
+  console.log(); // newline after progress
+
+  // Combine chunks into a single buffer
+  const totalLength = chunks.reduce((sum, chunk) => sum + chunk.length, 0);
+  const combined = new Uint8Array(totalLength);
+  let offset = 0;
+  for (const chunk of chunks) {
+    combined.set(chunk, offset);
+    offset += chunk.length;
+  }
+
+  await Bun.write(zipPath, combined);
 
   logger.info("Download complete");
   return zipPath;
@@ -204,7 +246,7 @@ title VBL Pro Updater
 
 echo Waiting for application to close...
 :waitloop
-tasklist /FI "PID eq ${process.pid}" 2>nul | find /I "PID" >nul
+tasklist /FI "PID eq ${process.pid}" /NH 2>nul | find "${process.pid}" >nul
 if %errorlevel%==0 (
   timeout /t 1 >nul
   goto waitloop
