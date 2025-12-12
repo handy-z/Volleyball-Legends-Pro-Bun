@@ -1,4 +1,4 @@
-import "./global";
+import "../global";
 import packageJson from "../../package.json" with { type: "json" };
 import { spawn } from "child_process";
 import { tmpdir } from "os";
