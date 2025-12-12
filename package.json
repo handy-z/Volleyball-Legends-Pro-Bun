@@ -1,6 +1,6 @@
 {
   "name": "vbl-pro-ts",
-  "version": "1.4.3",
+  "version": "1.4.4",
   "module": "src/index.ts",
   "devDependencies": {
     "@types/bun": "latest",
