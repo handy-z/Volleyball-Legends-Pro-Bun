@@ -52,18 +52,32 @@ export async function runGitCommit(): Promise<boolean> {
   const date = formatDate();
   const message = `@${username} ${date} x${count}`;
 
-  // Register rollback action for staged changes
+  let committed = false;
+  let pushed = false;
+
+  // Register rollback action for commit
   registerRollback("commit", async () => {
-    await run(["git", "reset", "HEAD~1"]);
+    if (pushed) {
+      // If pushed, need to revert the remote as well
+      await run(["git", "revert", "--no-commit", "HEAD"]);
+      await run(["git", "commit", "-m", `Revert: ${message}`]);
+      await run(["git", "push", "origin", "main"]);
+    } else if (committed) {
+      // Only local commit, just reset
+      await run(["git", "reset", "--soft", "HEAD~1"]);
+    }
+    // If not committed yet, nothing to rollback
   });
 
   console.time(`Committing "${message}" ...`);
   await run(["git", "commit", "-m", message]);
+  committed = true;
   markStageComplete("commit");
   console.timeEnd(`Committing "${message}" ...`);
 
   console.time("Pushing to origin main...");
   await run(["git", "push", "origin", "main"]);
+  pushed = true;
   console.timeEnd("Pushing to origin main...");
 
   return true;
