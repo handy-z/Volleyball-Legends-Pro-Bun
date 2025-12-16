@@ -158,9 +158,8 @@ export async function downloadUpdate(url: string): Promise<string> {
     }
   }
 
-  console.log(); // newline after progress
+  console.log();
 
-  // Combine chunks into a single buffer
   const totalLength = chunks.reduce((sum, chunk) => sum + chunk.length, 0);
   const combined = new Uint8Array(totalLength);
   let offset = 0;

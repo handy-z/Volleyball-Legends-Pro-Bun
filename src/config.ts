@@ -4,13 +4,13 @@ import { LoggerClass } from "./utils";
 
 const logger = new LoggerClass(["CONFIG", "yellow"]);
 
-export type SkillMode = "normal" | "boomjump";
+export type SkillMode = "normal" | "boomjump" | "stealblock";
 
 export interface AppConfig {
   skill_mode: SkillMode;
 }
 
-const VALID_SKILL_MODES: SkillMode[] = ["normal", "boomjump"];
+const VALID_SKILL_MODES: SkillMode[] = ["normal", "boomjump", "stealblock"];
 
 const DEFAULT_CONFIG: AppConfig = {
   skill_mode: "normal",

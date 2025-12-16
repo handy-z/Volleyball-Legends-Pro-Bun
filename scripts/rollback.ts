@@ -42,14 +42,13 @@ export async function executeRollback(): Promise<void> {
   if (isRollingBack) return;
   isRollingBack = true;
 
-  console.error("\n🔄 Initiating rollback...");
-
   const completedActions = rollbackActions.filter((r) => r.completed).reverse();
 
   if (completedActions.length === 0) {
-    console.log("No stages to rollback.");
     isRollingBack = false;
     return;
+  } else {
+    console.error("\n🔄 Initiating rollback...");
   }
 
   for (const { stage, action } of completedActions) {
