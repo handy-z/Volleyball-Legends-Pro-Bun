@@ -27,9 +27,7 @@ export default createHandler("x1", {
       if (!mouse.isPressed("x2")) {
         keyboard.tap("space");
       }
-      if (
-        await waitFor(() => !gameStates.get("is_on_ground"), shouldAbortDown)
-      ) {
+      if (await waitFor(() => gameStates.get("is_on_air"), shouldAbortDown)) {
         keyboard.press("e");
       }
     });
@@ -39,7 +37,7 @@ export default createHandler("x1", {
       if (gameStates.get("is_toss")) return;
       if (
         await waitFor(
-          () => !gameStates.get("is_on_ground") || !mouse.isPressed("x1"),
+          () => gameStates.get("is_on_air") || !mouse.isPressed("x1"),
           shouldAbortUp,
         )
       ) {
