@@ -19,13 +19,6 @@ export async function runCompile(): Promise<boolean> {
     sourcemap: "none",
     compile: {
       target: "bun-windows-x64",
-      windows: {
-        title: `VBL Pro v${version}`,
-        description: "Volleyball Legends Pro - Bun",
-        publisher: "Handy",
-        version,
-        hideConsole: true,
-      },
       outfile: `vbl-pro-bun-v${version}`,
     },
   };
