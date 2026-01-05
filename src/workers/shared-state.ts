@@ -1,17 +1,20 @@
-import { GameStateShape, RobloxStateShape } from "../states";
+import {
+  type GameStateShape,
+  type RobloxStateShape,
+  gameStates,
+  robloxStates,
+} from "../states";
 
 type AllStateKeys = keyof RobloxStateShape | keyof GameStateShape;
 
-const BIT_POSITIONS: Record<AllStateKeys, number> = {
-  is_active: 0,
-  is_on_ground: 1,
-  is_on_air: 2,
-  is_shift_lock: 3,
-  is_skill_ready: 4,
-  is_toss: 5,
-  is_bar_arrow: 6,
-  skill_toggle: 7,
-};
+export const STATE_KEYS = [
+  ...Object.keys(robloxStates.toObject()),
+  ...Object.keys(gameStates.toObject()),
+] as AllStateKeys[];
+
+const BIT_POSITIONS = Object.fromEntries(
+  STATE_KEYS.map((key, index) => [key, index]),
+) as Record<AllStateKeys, number>;
 
 export type StateKey = AllStateKeys;
 
@@ -22,9 +25,7 @@ const BUFFER_SIZE = 8;
 export function createSharedStateBuffer(): SharedArrayBuffer {
   const buffer = new SharedArrayBuffer(BUFFER_SIZE);
   const uint8View = new Uint8Array(buffer);
-
   uint8View[STATE_BYTE_OFFSET] = 1 << BIT_POSITIONS.skill_toggle;
-
   return buffer;
 }
 
@@ -39,7 +40,6 @@ export interface StateAccessor {
 export function createStateAccessor(buffer: SharedArrayBuffer): StateAccessor {
   const uint8View = new Uint8Array(buffer);
   const int32View = new Int32Array(buffer);
-
   let cachedFlags = uint8View[STATE_BYTE_OFFSET];
 
   return {
@@ -48,7 +48,6 @@ export function createStateAccessor(buffer: SharedArrayBuffer): StateAccessor {
       if (currentFlags !== cachedFlags) {
         cachedFlags = currentFlags;
       }
-
       const bitPos = BIT_POSITIONS[key];
       return (currentFlags & (1 << bitPos)) !== 0;
     },
@@ -57,7 +56,6 @@ export function createStateAccessor(buffer: SharedArrayBuffer): StateAccessor {
       const bitPos = BIT_POSITIONS[key];
       let oldFlags: number;
       let newFlags: number;
-      let changed = false;
 
       do {
         oldFlags = Atomics.load(uint8View, STATE_BYTE_OFFSET);
@@ -67,11 +65,7 @@ export function createStateAccessor(buffer: SharedArrayBuffer): StateAccessor {
           return false;
         }
 
-        if (value) {
-          newFlags = oldFlags | (1 << bitPos);
-        } else {
-          newFlags = oldFlags & ~(1 << bitPos);
-        }
+        newFlags = value ? oldFlags | (1 << bitPos) : oldFlags & ~(1 << bitPos);
 
         const prev = Atomics.compareExchange(
           uint8View,
@@ -80,14 +74,12 @@ export function createStateAccessor(buffer: SharedArrayBuffer): StateAccessor {
           newFlags,
         );
 
-        changed = prev === oldFlags;
-      } while (!changed);
+        if (prev === oldFlags) break;
+      } while (true);
 
       cachedFlags = newFlags;
-
       Atomics.add(int32View, NOTIFICATION_OFFSET / 4, 1);
       Atomics.notify(int32View, NOTIFICATION_OFFSET / 4);
-
       return true;
     },
 
@@ -99,9 +91,7 @@ export function createStateAccessor(buffer: SharedArrayBuffer): StateAccessor {
         notifyValue,
         timeout,
       );
-
       cachedFlags = Atomics.load(uint8View, STATE_BYTE_OFFSET);
-
       return result;
     },
 
@@ -119,10 +109,9 @@ export function createStateAccessor(buffer: SharedArrayBuffer): StateAccessor {
           cachedFlags = Atomics.load(uint8View, STATE_BYTE_OFFSET);
           return res;
         });
-      } else {
-        cachedFlags = Atomics.load(uint8View, STATE_BYTE_OFFSET);
-        return Promise.resolve(result.value);
       }
+      cachedFlags = Atomics.load(uint8View, STATE_BYTE_OFFSET);
+      return Promise.resolve(result.value);
     },
 
     notify(count: number = 1): number {

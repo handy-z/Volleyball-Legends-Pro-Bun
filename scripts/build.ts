@@ -1,4 +1,5 @@
 import { build, BuildConfig } from "bun";
+import { existsSync, rmSync } from "fs";
 
 export const buildConfig: BuildConfig = {
   entrypoints: [
@@ -16,6 +17,10 @@ export const buildConfig: BuildConfig = {
 export async function runBuild(): Promise<boolean> {
   console.time("build");
   console.log("Building...");
+
+  if (existsSync("./dist")) {
+    rmSync("./dist", { recursive: true });
+  }
 
   const config = { ...buildConfig, outdir: "dist" };
   const result = await build(config);

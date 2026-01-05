@@ -2,12 +2,13 @@
 import {
   createSharedStateBuffer,
   createStateAccessor,
+  STATE_KEYS,
   type StateKey,
 } from "./shared-state";
+import { gameStates, robloxStates, type GameStateShape } from "../states";
+import path from "path";
 
 const logger = new LoggerClass(["Worker", "cyan"]);
-import { gameStates, robloxStates } from "../states";
-import path from "path";
 
 interface WorkerState {
   isReady: boolean;
@@ -24,12 +25,13 @@ const workerExt = isCompiled ? ".js" : ".ts";
 const workerDir = isCompiled
   ? `${import.meta.dir.replace(/\\/g, "/")}/workers`
   : import.meta.dir.replace(/\\/g, "/");
+
 const WORKER_PATHS = {
   roblox: `${workerDir}/roblox${workerExt}`,
   game: `${workerDir}/game${workerExt}`,
 } as const;
 
-const workerStates: Map<string, WorkerState> = new Map();
+const workerStates = new Map<string, WorkerState>();
 
 function initWorkerState(name: string): void {
   workerStates.set(name, {
@@ -41,9 +43,7 @@ function initWorkerState(name: string): void {
 
 function setWorkerReady(name: string): void {
   const state = workerStates.get(name);
-  if (state) {
-    state.isReady = true;
-  }
+  if (state) state.isReady = true;
 }
 
 function setWorkerError(name: string, error: Error): void {
@@ -81,7 +81,6 @@ async function createWorker(
   };
 
   setWorkerReady(name);
-
   return worker;
 }
 
@@ -89,6 +88,20 @@ export let robloxDetection: Worker;
 export let gameDetection: Worker;
 
 let stateWatcherAbort: AbortController | undefined;
+
+function waitForReady(worker: Worker): Promise<boolean> {
+  return new Promise<boolean>((resolve) => {
+    worker.addEventListener(
+      "message",
+      (ev: MessageEvent<{ ready?: boolean }>) => {
+        if (ev.data.ready !== undefined) {
+          resolve(ev.data.ready);
+        }
+      },
+      { once: true },
+    );
+  });
+}
 
 export async function startWorkers(): Promise<{
   robloxReady: boolean;
@@ -100,30 +113,6 @@ export async function startWorkers(): Promise<{
       createWorker("game", WORKER_PATHS.game, { type: "module" }),
     ]);
 
-    const robloxReadyPromise = new Promise<boolean>((resolve) => {
-      robloxDetection.addEventListener(
-        "message",
-        (ev: MessageEvent<{ ready?: boolean }>) => {
-          if (ev.data.ready !== undefined) {
-            resolve(ev.data.ready);
-          }
-        },
-        { once: true },
-      );
-    });
-
-    const gameReadyPromise = new Promise<boolean>((resolve) => {
-      gameDetection.addEventListener(
-        "message",
-        (ev: MessageEvent<{ ready?: boolean }>) => {
-          if (ev.data.ready !== undefined) {
-            resolve(ev.data.ready);
-          }
-        },
-        { once: true },
-      );
-    });
-
     const sharedBuffer = createSharedStateBuffer();
 
     robloxDetection.postMessage({ type: "init", sharedBuffer });
@@ -134,8 +123,8 @@ export async function startWorkers(): Promise<{
     logger.info("Initialized successfully");
 
     const [robloxReady, gameReady] = await Promise.all([
-      robloxReadyPromise,
-      gameReadyPromise,
+      waitForReady(robloxDetection),
+      waitForReady(gameDetection),
     ]);
 
     return { robloxReady, gameReady };
@@ -154,27 +143,13 @@ function startStateWatcher(buffer: SharedArrayBuffer): void {
   const accessor = createStateAccessor(buffer);
   const signal = stateWatcherAbort.signal;
 
-  const allKeys: StateKey[] = [
-    "is_active",
-    "is_on_ground",
-    "is_on_air",
-    "is_shift_lock",
-    "is_skill_ready",
-    "is_toss",
-    "is_bar_arrow",
-    "skill_toggle",
-  ];
-
   const prevStates = new Map<StateKey, boolean>();
-  for (const key of allKeys) {
+  for (const key of STATE_KEYS) {
     prevStates.set(key, accessor.get(key));
   }
 
   async function watchLoop(): Promise<void> {
-    let iterationCount = 0;
     while (!signal.aborted) {
-      iterationCount++;
-
       try {
         await accessor.waitAsync(1000);
       } catch (err) {
@@ -184,8 +159,7 @@ function startStateWatcher(buffer: SharedArrayBuffer): void {
 
       if (signal.aborted) break;
 
-      let hasChanges = false;
-      for (const key of allKeys) {
+      for (const key of STATE_KEYS) {
         const current = accessor.get(key);
         const prev = prevStates.get(key);
 
@@ -203,20 +177,10 @@ function startStateWatcher(buffer: SharedArrayBuffer): void {
               pauseListeners();
             }
           } else {
-            gameStates.set(key, current);
+            gameStates.set(key as keyof GameStateShape, current);
           }
         }
       }
-
-      // if (iterationCount % 100 === 0) {
-      //   const metrics = accessor.getMetrics();
-      //   logger.info(
-      //     `Metrics: ${metrics.totalReads} reads, ` +
-      //     `${metrics.totalWrites} writes, ` +
-      //     `${(metrics.hitRate * 100).toFixed(1)}% cache hit rate, ` +
-      //     `${metrics.notificationsSent} notifications`
-      //   );
-      // }
     }
   }
 
@@ -226,6 +190,7 @@ function startStateWatcher(buffer: SharedArrayBuffer): void {
     }
   });
 }
+
 export function terminateWorkers(): void {
   try {
     if (stateWatcherAbort) {
@@ -247,6 +212,4 @@ export function terminateWorkers(): void {
   }
 }
 
-process.on("beforeExit", () => {
-  terminateWorkers();
-});
+process.on("beforeExit", terminateWorkers);

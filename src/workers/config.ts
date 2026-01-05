@@ -26,13 +26,6 @@ export const GAME_WATCHER_CONFIGS: GameWatchConfig[] = [
     pollRate: 1,
   },
   {
-    name: "is_on_air",
-    point: [975, 970],
-    target: [255, 236, 168],
-    tolerance: 0,
-    pollRate: 1,
-  },
-  {
     name: "is_shift_lock",
     point: [1807, 969],
     target: [47, 85, 104],

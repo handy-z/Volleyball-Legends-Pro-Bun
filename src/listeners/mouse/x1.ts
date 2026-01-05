@@ -3,23 +3,6 @@ import { gameStates, programStates, robloxStates } from "../../states";
 import { createHandler } from "../types";
 import { waitFor, withLock } from "../utils";
 
-function shouldAbortDown(): boolean {
-  return (
-    !programStates.get("is_enabled") ||
-    !robloxStates.get("is_active") ||
-    gameStates.get("is_toss") ||
-    (gameStates.get("is_on_ground") && !mouse.isPressed("x1"))
-  );
-}
-
-function shouldAbortUp(): boolean {
-  return (
-    !programStates.get("is_enabled") ||
-    !robloxStates.get("is_active") ||
-    gameStates.get("is_toss")
-  );
-}
-
 export default createHandler("x1", {
   down: async () => {
     await withLock("x1", async () => {
@@ -27,7 +10,15 @@ export default createHandler("x1", {
       if (!mouse.isPressed("x2")) {
         keyboard.tap("space");
       }
-      if (await waitFor(() => gameStates.get("is_on_air"), shouldAbortDown)) {
+      const success = await waitFor(
+        () => !gameStates.get("is_on_ground"),
+        () =>
+          !programStates.get("is_enabled") ||
+          !robloxStates.get("is_active") ||
+          gameStates.get("is_toss") ||
+          (gameStates.get("is_on_ground") && !mouse.isPressed("x1")),
+      );
+      if (success) {
         keyboard.press("e");
       }
     });
@@ -35,12 +26,14 @@ export default createHandler("x1", {
   up: async () => {
     await withLock("x1", async () => {
       if (gameStates.get("is_toss")) return;
-      if (
-        await waitFor(
-          () => gameStates.get("is_on_air") || !mouse.isPressed("x1"),
-          shouldAbortUp,
-        )
-      ) {
+      const success = await waitFor(
+        () => !gameStates.get("is_on_ground") || !mouse.isPressed("x1"),
+        () =>
+          !programStates.get("is_enabled") ||
+          !robloxStates.get("is_active") ||
+          gameStates.get("is_toss"),
+      );
+      if (success) {
         keyboard.release("e");
       }
     });

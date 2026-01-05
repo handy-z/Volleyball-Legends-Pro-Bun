@@ -13,79 +13,72 @@ const workerLog = new Logger(["Worker", "cyan"], ["Game", "gray"]);
 
 let sharedStateAccessor: StateAccessor | undefined;
 let isActive = false;
-let abortController: AbortController | null = null;
+let watcherAborts: AbortController[] = [];
 
-function matchesTarget(
-  rgb: RGB,
-  target: [number, number, number],
-  tolerance: number,
-): boolean {
-  const rDiff = Math.abs(rgb.r - target[0]);
-  const gDiff = Math.abs(rgb.g - target[1]);
-  const bDiff = Math.abs(rgb.b - target[2]);
-  return rDiff <= tolerance && gDiff <= tolerance && bDiff <= tolerance;
-}
-
-function checkConditions(conditions?: GameWatchConfig["conditions"]): boolean {
-  if (!conditions || !sharedStateAccessor) return true;
-  for (const c of conditions) {
-    const cValue = sharedStateAccessor.get(c.name as StateKey);
-    if (cValue !== c.value) return false;
-  }
-  return true;
-}
-
-async function runAllWatchers(signal: AbortSignal): Promise<void> {
+async function runWatcher(
+  config: GameWatchConfig,
+  signal: AbortSignal,
+): Promise<void> {
   if (!sharedStateAccessor) {
     throw new Error("SharedStateAccessor not initialized");
   }
 
-  const lastMatches = new Map<keyof GameStateShape, boolean | undefined>();
+  const [x, y] = config.point;
+  const [tr, tg, tb] = config.target;
+  const tolerance = config.tolerance ?? 0;
+  const conditions = config.conditions;
+  let lastMatch: boolean | undefined;
 
   while (!signal.aborted) {
-    await Bun.sleep(1);
-
+    await Bun.sleep(config.pollRate);
     if (signal.aborted) break;
 
-    for (const config of GAME_WATCHER_CONFIGS) {
-      if (!checkConditions(config.conditions)) continue;
-
-      const [x, y] = config.point;
-      const rgb = screen.getPixel(x, y);
-
-      if (!rgb) continue;
-
-      const tolerance = config.tolerance ?? 0;
-      const isMatch = matchesTarget(rgb, config.target, tolerance);
-      const lastMatch = lastMatches.get(config.name);
-
-      if (isMatch !== lastMatch) {
-        sharedStateAccessor.set(config.name as StateKey, isMatch);
-        lastMatches.set(config.name, isMatch);
+    if (conditions) {
+      let skip = false;
+      for (const c of conditions) {
+        if (sharedStateAccessor.get(c.name as StateKey) !== c.value) {
+          skip = true;
+          break;
+        }
       }
+      if (skip) continue;
+    }
+
+    const rgb = screen.getPixel(x, y);
+    if (!rgb) continue;
+
+    const isMatch =
+      Math.abs(rgb.r - tr) <= tolerance &&
+      Math.abs(rgb.g - tg) <= tolerance &&
+      Math.abs(rgb.b - tb) <= tolerance;
+
+    if (isMatch !== lastMatch) {
+      sharedStateAccessor.set(config.name as StateKey, isMatch);
+      lastMatch = isMatch;
     }
   }
 }
 
 function startWatchers(): void {
-  if (abortController) {
-    abortController.abort();
+  stopWatchers();
+
+  for (const config of GAME_WATCHER_CONFIGS) {
+    const abort = new AbortController();
+    watcherAborts.push(abort);
+
+    runWatcher(config, abort.signal).catch((err) => {
+      if (err.name !== "AbortError") {
+        workerLog.error(`Watcher "${config.name}" failed:`, err);
+      }
+    });
   }
-
-  abortController = new AbortController();
-
-  runAllWatchers(abortController.signal).catch((err) => {
-    if (err.name !== "AbortError") {
-      workerLog.error("Game watcher failed:", err);
-    }
-  });
 }
 
 function stopWatchers(): void {
-  if (abortController) {
-    abortController.abort();
-    abortController = null;
+  for (const abort of watcherAborts) {
+    abort.abort();
   }
+  watcherAborts = [];
   gameStates.reset();
 }
 
