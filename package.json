@@ -1,10 +1,11 @@
 {
   "name": "vbl-pro-ts",
-  "version": "2.1.0",
+  "version": "2.2.0",
   "module": "src/index.ts",
   "type": "module",
   "devDependencies": {
     "@types/bun": "latest",
+    "@winput/window": "latest",
     "@winput/screen": "latest",
     "@winput/keyboard": "latest",
     "@winput/mouse": "latest",
