@@ -38,6 +38,7 @@ export class Logger {
   };
 
   private tags: { name: string; color: ColorKey }[] = [];
+  private tagStr: string = "";
 
   constructor(...inputs: TagInput[]) {
     this.tags = inputs.map((t) => {
@@ -50,10 +51,27 @@ export class Logger {
       }
       return { name: t, color: "magenta" as ColorKey };
     });
+    this.rebuildTagStr();
+  }
+
+  private rebuildTagStr(): void {
+    if (this.tags.length === 0) {
+      this.tagStr = "";
+      return;
+    }
+    const parts: string[] = new Array(this.tags.length);
+    for (let i = 0; i < this.tags.length; i++) {
+      const t = this.tags[i];
+      parts[i] = this.config.colors
+        ? `${COLORS[t.color]}[${t.name}]${COLORS.reset}`
+        : `[${t.name}]`;
+    }
+    this.tagStr = " " + parts.join(" ");
   }
 
   configure(config: Partial<LoggerConfig>) {
     this.config = { ...this.config, ...config };
+    this.rebuildTagStr();
   }
 
   scoped(...inputs: TagInput[]) {
@@ -81,13 +99,7 @@ export class Logger {
   private format(level: string, color: ColorKey, ...args: unknown[]): string {
     const timestamp = this.getTimestamp();
     const prefix = timestamp ? `${this.colorize("dim", timestamp)} ` : "";
-    const levelStr = this.colorize(color, `${level}`);
-
-    const tagStr =
-      this.tags.length > 0
-        ? " " +
-          this.tags.map((t) => this.colorize(t.color, `[${t.name}]`)).join(" ")
-        : "";
+    const levelStr = this.colorize(color, level);
 
     const message = args
       .map((arg) =>
@@ -97,7 +109,7 @@ export class Logger {
       )
       .join(" ");
 
-    return `${prefix}${COLORS.reset}${COLORS.bright}${levelStr}${COLORS.reset}${tagStr}${COLORS.reset} ${message}`;
+    return `${prefix}${COLORS.reset}${COLORS.bright}${levelStr}${COLORS.reset}${this.tagStr}${COLORS.reset} ${message}`;
   }
 
   debug(...args: unknown[]) {

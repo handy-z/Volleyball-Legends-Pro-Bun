@@ -36,7 +36,7 @@ export function startOverlay(): void {
       logger.info("hidden");
       isShowing = false;
     }
-  }, 50);
+  }, 150);
 }
 
 export function stopOverlay(): void {

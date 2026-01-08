@@ -33,6 +33,8 @@ export function createReactiveState<T extends object>(
   const defaults = { ...initial };
   const state = { ...initial };
   const listeners: StateChangeCallback<T>[] = [];
+  const keys = Object.keys(defaults) as (keyof T)[];
+  const keyCount = keys.length;
 
   return {
     get<K extends keyof T>(key: K): T[K] {
@@ -43,8 +45,9 @@ export function createReactiveState<T extends object>(
       const prev = state[key];
       if (prev !== value) {
         state[key] = value;
-        for (const cb of listeners) {
-          cb(key, value, prev);
+        const len = listeners.length;
+        for (let i = 0; i < len; i++) {
+          listeners[i](key, value, prev);
         }
       }
     },
@@ -58,12 +61,15 @@ export function createReactiveState<T extends object>(
     },
 
     reset(): void {
-      for (const key of Object.keys(defaults) as (keyof T)[]) {
+      for (let i = 0; i < keyCount; i++) {
+        const key = keys[i];
         const prev = state[key];
-        state[key] = defaults[key];
-        if (prev !== defaults[key]) {
-          for (const cb of listeners) {
-            cb(key, defaults[key], prev);
+        const def = defaults[key];
+        if (prev !== def) {
+          state[key] = def;
+          const len = listeners.length;
+          for (let j = 0; j < len; j++) {
+            listeners[j](key, def, prev);
           }
         }
       }

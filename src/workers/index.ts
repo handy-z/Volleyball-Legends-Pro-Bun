@@ -143,9 +143,10 @@ function startStateWatcher(buffer: SharedArrayBuffer): void {
   const accessor = createStateAccessor(buffer);
   const signal = stateWatcherAbort.signal;
 
-  const prevStates = new Map<StateKey, boolean>();
-  for (const key of STATE_KEYS) {
-    prevStates.set(key, accessor.get(key));
+  const keyCount = STATE_KEYS.length;
+  const prevStates: boolean[] = new Array(keyCount);
+  for (let i = 0; i < keyCount; i++) {
+    prevStates[i] = accessor.get(STATE_KEYS[i]);
   }
 
   async function watchLoop(): Promise<void> {
@@ -159,12 +160,15 @@ function startStateWatcher(buffer: SharedArrayBuffer): void {
 
       if (signal.aborted) break;
 
-      for (const key of STATE_KEYS) {
+      accessor.refresh();
+
+      for (let i = 0; i < keyCount; i++) {
+        const key = STATE_KEYS[i];
         const current = accessor.get(key);
-        const prev = prevStates.get(key);
+        const prev = prevStates[i];
 
         if (current !== prev) {
-          prevStates.set(key, current);
+          prevStates[i] = current;
 
           if (key === "is_active") {
             robloxStates.set(key, current);

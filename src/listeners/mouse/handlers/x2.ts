@@ -4,50 +4,53 @@ import { gameStates, programStates, robloxStates } from "@states";
 import { getConfig } from "@config";
 import { createHandler, waitFor } from "@utils";
 
+const isEnabled = () => programStates.get("is_enabled");
+const isActive = () => robloxStates.get("is_active");
+const isToss = () => gameStates.get("is_toss");
+const isOnGround = () => gameStates.get("is_on_ground");
+const isShiftLock = () => gameStates.get("is_shift_lock");
+const isSkillToggle = () => gameStates.get("skill_toggle");
+const isSkillReady = () => gameStates.get("is_skill_ready");
+
+const shouldAbortX2 = () =>
+  !isEnabled() ||
+  !isActive() ||
+  isToss() ||
+  (isOnGround() && !mouse.isPressed("x2"));
+
 export default createHandler("x2", {
   down: async () => {
-    if (gameStates.get("is_toss")) return;
+    if (isToss()) return;
+
+    const config = getConfig();
 
     while (mouse.isPressed("x2")) {
       await Bun.sleep(1);
 
-      if (
-        !programStates.get("is_enabled") ||
-        !robloxStates.get("is_active") ||
-        gameStates.get("is_toss") ||
-        mouse.isPressed("x1")
-      )
+      if (!isEnabled() || !isActive() || isToss() || mouse.isPressed("x1"))
         break;
 
-      if (gameStates.get("is_on_ground")) {
-        const isShift = gameStates.get("is_shift_lock");
-        const config = getConfig();
+      if (isOnGround()) {
+        const shiftLocked = isShiftLock();
 
-        if (!isShift) {
+        if (!shiftLocked) {
           keyboard.press("shift");
           await Bun.sleep(20);
         }
 
         if (
           config.skill_mode === "boomjump" &&
-          gameStates.get("skill_toggle") &&
-          gameStates.get("is_skill_ready")
+          isSkillToggle() &&
+          isSkillReady()
         ) {
           keyboard.tap("ctrl");
         } else {
           keyboard.tap("space");
         }
 
-        await waitFor(
-          () => !gameStates.get("is_on_ground"),
-          () =>
-            !programStates.get("is_enabled") ||
-            !robloxStates.get("is_active") ||
-            gameStates.get("is_toss") ||
-            (gameStates.get("is_on_ground") && !mouse.isPressed("x2")),
-        );
+        await waitFor(() => !isOnGround(), shouldAbortX2);
 
-        if (!isShift) {
+        if (!shiftLocked) {
           keyboard.release("shift");
           keyboard.tap("shift");
         }
@@ -55,24 +58,13 @@ export default createHandler("x2", {
     }
   },
   up: async () => {
-    if (gameStates.get("is_toss")) return;
+    if (isToss()) return;
     if (mouse.isPressed("x1")) return;
 
-    await waitFor(
-      () => !gameStates.get("is_on_ground"),
-      () =>
-        !programStates.get("is_enabled") ||
-        !robloxStates.get("is_active") ||
-        gameStates.get("is_toss") ||
-        (gameStates.get("is_on_ground") && !mouse.isPressed("x2")),
-    );
+    await waitFor(() => !isOnGround(), shouldAbortX2);
 
     const config = getConfig();
-    if (
-      config.skill_mode === "normal" &&
-      gameStates.get("skill_toggle") &&
-      gameStates.get("is_skill_ready")
-    ) {
+    if (config.skill_mode === "normal" && isSkillToggle() && isSkillReady()) {
       keyboard.tap("ctrl");
       await keyboard.waitForRelease("ctrl");
     }

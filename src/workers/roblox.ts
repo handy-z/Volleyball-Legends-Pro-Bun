@@ -3,24 +3,25 @@ import { Logger } from "@utils";
 import { robloxStates } from "@states";
 import { ROBLOX_WATCHER_CONFIGS } from "./config";
 import { createStateAccessor, type StateAccessor } from "./shared-state";
-import { isRobloxActiveFullscreen } from "@utils";
+import { window } from "@winput/window";
 
 const workerLog = new Logger(["Worker", "cyan"], ["Roblox", "gray"]);
+const POLL_RATE = ROBLOX_WATCHER_CONFIGS[0].pollRate;
 
 let sharedStateAccessor: StateAccessor | undefined;
 let abortController: AbortController | null = null;
 let lastActive: boolean | undefined;
 
-async function runWatcher(
-  signal: AbortSignal,
-  pollRate: number,
-): Promise<void> {
+async function runWatcher(signal: AbortSignal): Promise<void> {
   while (!signal.aborted) {
-    await Bun.sleep(pollRate);
+    await Bun.sleep(POLL_RATE);
     if (signal.aborted) break;
 
-    const { active, fullscreen } = isRobloxActiveFullscreen();
-    const isNowActive = active && fullscreen;
+    const windowInfo = window.getActiveWindow();
+    const isNowActive =
+      windowInfo !== null &&
+      windowInfo.title === "Roblox" &&
+      windowInfo.isFullscreen;
 
     if (isNowActive !== lastActive) {
       robloxStates.set("is_active", isNowActive);
@@ -35,9 +36,7 @@ function startWatcher(): void {
   abortController?.abort();
   abortController = new AbortController();
 
-  const { pollRate } = ROBLOX_WATCHER_CONFIGS[0];
-
-  runWatcher(abortController.signal, pollRate).catch((err) => {
+  runWatcher(abortController.signal).catch((err) => {
     if (err.name !== "AbortError") {
       workerLog.error("Roblox watcher failed:", err);
     }
