@@ -3,8 +3,7 @@ import { Pen } from "./pen";
 import { screen } from "../screen";
 import { robloxStates, programStates } from "@states";
 import { Logger } from "@utils";
-import { join } from "path";
-import { tmpdir } from "os";
+import { dirname, join } from "path";
 import { mkdir } from "fs/promises";
 import { CROSSHAIR_BASE64 } from "./crosshair-data";
 
@@ -23,14 +22,19 @@ let drawHeight = 0;
 let centerX = 0;
 let centerY = 0;
 
-const TEMP_DIR = join(tmpdir(), "vbl-pro");
-const CROSSHAIR_PATH = join(TEMP_DIR, "crosshair.png");
+function getAssetsDir(): string {
+  const exeDir = dirname(process.execPath);
+  return join(exeDir, "assets");
+}
+
+const CROSSHAIR_PATH = join(getAssetsDir(), "crosshair.png");
 
 async function extractCrosshair(): Promise<string> {
-  await mkdir(TEMP_DIR, { recursive: true });
+  const assetsDir = getAssetsDir();
+  await mkdir(assetsDir, { recursive: true });
 
-  const tempFile = Bun.file(CROSSHAIR_PATH);
-  if (await tempFile.exists()) {
+  const crosshairFile = Bun.file(CROSSHAIR_PATH);
+  if (await crosshairFile.exists()) {
     return CROSSHAIR_PATH;
   }
 
