@@ -1,6 +1,6 @@
 declare var self: Worker;
 import { Logger } from "@utils";
-import { screen } from "@winput/screen";
+import { screen } from "../screen";
 import { gameStates } from "@states";
 import { GAME_WATCHER_CONFIGS, GAME_POLL_RATE } from "./config";
 import {

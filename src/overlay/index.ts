@@ -1,16 +1,16 @@
-import { overlay, Pen } from "@winput/overlay";
-import { screen } from "@winput/screen";
+import { overlay } from "./overlay";
+import { Pen } from "./pen";
+import { screen } from "../screen";
 import { robloxStates, programStates } from "@states";
 import { Logger } from "@utils";
 import { join } from "path";
+import { tmpdir } from "os";
+import { mkdir } from "fs/promises";
+import { CROSSHAIR_BASE64 } from "./crosshair-data";
 
 const logger = new Logger(["Overlay", "cyan"]);
 
-/**
- * Crosshair scale factor (1.0 = original size, 2.0 = double size, 0.5 = half size)
- */
 const CROSSHAIR_SCALE = 0.5;
-
 const ORIGINAL_SIZE = 26;
 
 let isShowing = false;
@@ -23,12 +23,31 @@ let drawHeight = 0;
 let centerX = 0;
 let centerY = 0;
 
-function getCrosshairPath(): string {
-  return join(process.cwd(), "assets", "crosshair.png");
+const TEMP_DIR = join(tmpdir(), "vbl-pro");
+const CROSSHAIR_PATH = join(TEMP_DIR, "crosshair.png");
+
+async function extractCrosshair(): Promise<string> {
+  await mkdir(TEMP_DIR, { recursive: true });
+
+  const tempFile = Bun.file(CROSSHAIR_PATH);
+  if (await tempFile.exists()) {
+    return CROSSHAIR_PATH;
+  }
+
+  const binaryString = atob(CROSSHAIR_BASE64);
+  const bytes = new Uint8Array(binaryString.length);
+  for (let i = 0; i < binaryString.length; i++) {
+    bytes[i] = binaryString.charCodeAt(i);
+  }
+
+  await Bun.write(CROSSHAIR_PATH, bytes);
+  return CROSSHAIR_PATH;
 }
 
-export function startOverlay(): void {
+export async function startOverlay(): Promise<void> {
   if (intervalId !== undefined) return;
+
+  await extractCrosshair();
 
   const size = screen.getScreenSize();
   centerX = Math.floor(size.width / 2);
@@ -37,15 +56,14 @@ export function startOverlay(): void {
   drawWidth = Math.floor(ORIGINAL_SIZE * CROSSHAIR_SCALE);
   drawHeight = Math.floor(ORIGINAL_SIZE * CROSSHAIR_SCALE);
 
-  const imagePath = getCrosshairPath();
-  crosshairImage = Pen.loadImage(imagePath);
+  crosshairImage = Pen.loadImage(CROSSHAIR_PATH);
 
   if (crosshairImage) {
     logger.info(
       `loaded crosshair (scale: ${CROSSHAIR_SCALE}x, size: ${drawWidth}x${drawHeight})`,
     );
   } else {
-    logger.warn(`failed to load crosshair from: ${imagePath}`);
+    logger.warn(`failed to load crosshair from: ${CROSSHAIR_PATH}`);
   }
 
   intervalId = setInterval(() => {
